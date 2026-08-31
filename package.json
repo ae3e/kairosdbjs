@@ -1,5 +1,5 @@
 {
-  "name": "@ae3e/kairosdb-js-client",
+  "name": "kairosdbjs",
   "version": "0.2.2",
   "description": "JavaScript/TypeScript client for KairosDB, usable in Node.js and in the browser, inspired by the official Java client.",
   "type": "module",
@@ -24,9 +24,6 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ae3e/kairosdbjs.git"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
