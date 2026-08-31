@@ -1,0 +1,15 @@
+{
+  "name": "kairosdb-js-client",
+  "version": "0.1.0",
+  "description": "JavaScript client for KairosDB, inspired by the official Java client.",
+  "main": "src/index.js",
+  "type": "module",
+  "keywords": [
+    "kairosdb",
+    "metrics",
+    "time-series",
+    "client"
+  ],
+  "license": "Apache-2.0"
+}
+
