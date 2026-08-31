@@ -1,5 +1,42 @@
+import { MetricBuilder } from "./MetricBuilder.js";
+import { QueryBuilder } from "./QueryBuilder.js";
+import { QueryTagBuilder } from "./QueryTagBuilder.js";
+
+export interface KairosDBClientOptions {
+  headers?: Record<string, string>;
+}
+
+interface RequestOptions {
+  body?: unknown;
+  accept?: string | null;
+}
+
+export interface HealthStatus {
+  [key: string]: unknown;
+}
+
+export interface VersionResponse {
+  version?: string;
+  [key: string]: unknown;
+}
+
+export class KairosDBClientError extends Error {
+  status: number;
+  body: string;
+
+  constructor(message: string, status: number, body: string) {
+    super(message);
+    this.status = status;
+    this.body = body;
+  }
+}
+
 export class KairosDBClient {
-  constructor(baseUrl, options = {}) {
+  baseUrl: string;
+  fetchImpl: typeof fetch;
+  defaultHeaders: Record<string, string>;
+
+  constructor(baseUrl: string, options: KairosDBClientOptions = {}) {
     if (!baseUrl) {
       throw new Error("baseUrl is required");
     }
@@ -11,14 +48,18 @@ export class KairosDBClient {
     this.defaultHeaders = options.headers || {};
   }
 
-  async _request(method, path, { body, accept = "application/json" } = {}) {
-    const headers = {
+  private async _request<T = unknown>(
+    method: string,
+    path: string,
+    { body, accept = "application/json" }: RequestOptions = {}
+  ): Promise<T> {
+    const headers: Record<string, string> = {
       ...this.defaultHeaders
     };
     if (accept) {
       headers["Accept"] = accept;
     }
-    let payload = body;
+    let payload: BodyInit | undefined;
     if (body !== undefined && body !== null) {
       headers["Content-Type"] = "application/json";
       payload = typeof body === "string" ? body : JSON.stringify(body);
@@ -32,29 +73,28 @@ export class KairosDBClient {
 
     const text = await response.text();
     if (!response.ok) {
-      const error = new Error(
-        `KairosDB HTTP ${response.status}: ${text || "<empty body>"}`
+      throw new KairosDBClientError(
+        `KairosDB HTTP ${response.status}: ${text || "<empty body>"}`,
+        response.status,
+        text
       );
-      error.status = response.status;
-      error.body = text;
-      throw error;
     }
 
     if (!text) {
-      return null;
+      return null as T;
     }
 
     if (accept === "application/json") {
       try {
-        return JSON.parse(text);
+        return JSON.parse(text) as T;
       } catch {
-        return text;
+        return text as unknown as T;
       }
     }
-    return text;
+    return text as unknown as T;
   }
 
-  async pushMetrics(metricBuilder) {
+  async pushMetrics(metricBuilder: MetricBuilder): Promise<void> {
     const payload =
       metricBuilder && typeof metricBuilder.build === "function"
         ? metricBuilder.build()
@@ -62,7 +102,7 @@ export class KairosDBClient {
     await this._request("POST", "/api/v1/datapoints", { body: payload });
   }
 
-  async query(queryBuilder) {
+  async query(queryBuilder: QueryBuilder): Promise<unknown> {
     const payload =
       queryBuilder && typeof queryBuilder.build === "function"
         ? queryBuilder.build()
@@ -70,7 +110,7 @@ export class KairosDBClient {
     return this._request("POST", "/api/v1/datapoints/query", { body: payload });
   }
 
-  async queryTags(queryTagBuilder) {
+  async queryTags(queryTagBuilder: QueryTagBuilder): Promise<unknown> {
     const payload =
       queryTagBuilder && typeof queryTagBuilder.build === "function"
         ? queryTagBuilder.build()
@@ -80,18 +120,18 @@ export class KairosDBClient {
     });
   }
 
-  async getMetricNames() {
-    return this._request("GET", "/api/v1/metricnames");
+  async getMetricNames(): Promise<string[]> {
+    return this._request<string[]>("GET", "/api/v1/metricnames");
   }
 
-  async deleteMetric(name) {
+  async deleteMetric(name: string): Promise<void> {
     if (!name) {
       throw new Error("Metric name is required");
     }
     await this._request("DELETE", `/api/v1/metric/${encodeURIComponent(name)}`);
   }
 
-  async delete(queryBuilder) {
+  async delete(queryBuilder: QueryBuilder): Promise<void> {
     const payload =
       queryBuilder && typeof queryBuilder.build === "function"
         ? queryBuilder.build()
@@ -99,20 +139,20 @@ export class KairosDBClient {
     await this._request("POST", "/api/v1/datapoints/delete", { body: payload });
   }
 
-  async getStatus() {
-    return this._request("GET", "/api/v1/health/status");
+  async getStatus(): Promise<HealthStatus> {
+    return this._request<HealthStatus>("GET", "/api/v1/health/status");
   }
 
-  async getStatusCheck() {
-    const result = await this._request("GET", "/api/v1/health/check", {
+  async getStatusCheck(): Promise<number> {
+    const result = await this._request<string>("GET", "/api/v1/health/check", {
       accept: "text/plain"
     });
     const code = Number(result);
     return Number.isNaN(code) ? 204 : code;
   }
 
-  async getVersion() {
-    const versionObj = await this._request("GET", "/api/v1/version");
+  async getVersion(): Promise<string | VersionResponse> {
+    const versionObj = await this._request<VersionResponse>("GET", "/api/v1/version");
     if (versionObj && typeof versionObj.version === "string") {
       return versionObj.version;
     }

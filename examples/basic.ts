@@ -6,7 +6,7 @@ import {
   TimeUnit
 } from "../src/index.js";
 
-async function run() {
+async function run(): Promise<void> {
   // Adapt the URL to your KairosDB instance
   const client = new KairosDBClient("http://localhost:8080");
 

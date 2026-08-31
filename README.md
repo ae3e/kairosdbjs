@@ -1,6 +1,6 @@
 # KairosDB JS Client
 
-Minimalist JavaScript client for KairosDB, inspired by the official Java client
+Minimalist TypeScript client for KairosDB, inspired by the official Java client
 [`kairosdb/kairosdb-client`](https://github.com/kairosdb/kairosdb-client).
 
 ## Installation
@@ -9,9 +9,18 @@ Minimalist JavaScript client for KairosDB, inspired by the official Java client
 npm install kairosdb-js-client
 ```
 
+## Development
+
+```bash
+npm install     # installs dependencies and builds dist/ via the prepare script
+npm run build    # compile TypeScript to dist/
+npm run example:basic    # run examples/basic.ts against a local KairosDB instance
+npm run example:hourly   # run examples/hourlyAverage.ts
+```
+
 ## Quick Usage
 
-```js
+```ts
 import {
   KairosDBClient,
   MetricBuilder,
@@ -65,6 +74,7 @@ console.log(metricNames);
   native JSON objects directly (no Gson).
 - Aggregators and groupers are represented as plain JavaScript objects;
   you just need to follow the JSON structure expected by KairosDB.
+- Written in TypeScript; type declarations are bundled with the package.
 
 This project covers the main operations of the Java client (pushing metrics,
 querying data points and tags, metric names, status, version). Advanced

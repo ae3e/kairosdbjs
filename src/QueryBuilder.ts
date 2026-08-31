@@ -1,7 +1,17 @@
-import { AbstractQueryBuilder } from "./AbstractQueryBuilder.js";
+import { AbstractQueryBuilder, TimeRange } from "./AbstractQueryBuilder.js";
 import { QueryMetric } from "./QueryMetric.js";
 
+export interface QueryPayload extends TimeRange {
+  cache_time?: number;
+  time_zone?: string;
+  metrics: QueryMetric[];
+}
+
 export class QueryBuilder extends AbstractQueryBuilder {
+  cache_time?: number;
+  time_zone?: string;
+  metrics: QueryMetric[];
+
   constructor() {
     super();
     this.cache_time = undefined;
@@ -9,11 +19,11 @@ export class QueryBuilder extends AbstractQueryBuilder {
     this.metrics = [];
   }
 
-  static getInstance() {
+  static getInstance(): QueryBuilder {
     return new QueryBuilder();
   }
 
-  setCacheTime(cacheTime) {
+  setCacheTime(cacheTime: number): this {
     if (typeof cacheTime !== "number" || cacheTime <= 0) {
       throw new Error("Cache time must be greater than 0.");
     }
@@ -21,13 +31,13 @@ export class QueryBuilder extends AbstractQueryBuilder {
     return this;
   }
 
-  addMetric(name) {
+  addMetric(name: string): QueryMetric {
     const metric = new QueryMetric(name);
     this.metrics.push(metric);
     return metric;
   }
 
-  setTimeZone(tzId) {
+  setTimeZone(tzId: string): this {
     if (!tzId) {
       throw new Error("timezone cannot be null");
     }
@@ -35,7 +45,7 @@ export class QueryBuilder extends AbstractQueryBuilder {
     return this;
   }
 
-  build() {
+  build(): QueryPayload {
     const timeRange = this._buildTimeRange();
     return {
       ...timeRange,
@@ -45,4 +55,3 @@ export class QueryBuilder extends AbstractQueryBuilder {
     };
   }
 }
-

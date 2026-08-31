@@ -1,5 +1,14 @@
+export type MetricValue = number | string | boolean;
+export type DataPoint = [timestamp: number, value: MetricValue];
+
 export class Metric {
-  constructor(name, registeredType) {
+  name: string;
+  tags: Record<string, string>;
+  type?: string;
+  ttl: number;
+  datapoints: DataPoint[];
+
+  constructor(name: string, registeredType?: string) {
     if (!name) {
       throw new Error("Metric name cannot be null or empty");
     }
@@ -10,7 +19,7 @@ export class Metric {
     this.datapoints = [];
   }
 
-  addTag(name, value) {
+  addTag(name: string, value: string): this {
     if (!name || !value) {
       throw new Error("Tag name and value cannot be null or empty");
     }
@@ -18,7 +27,7 @@ export class Metric {
     return this;
   }
 
-  addTags(tags) {
+  addTags(tags: Record<string, string>): this {
     if (!tags || typeof tags !== "object") {
       throw new Error("tags must be an object");
     }
@@ -26,20 +35,15 @@ export class Metric {
     return this;
   }
 
-  addDataPoint(timestamp, value) {
+  addDataPoint(timestamp: number, value: MetricValue): this {
     if (value === undefined || value === null) {
       throw new Error("Data point value cannot be null");
     }
-
-    if (typeof timestamp === "number" && value !== undefined) {
-      this.datapoints.push([timestamp, value]);
-    } else {
-      this.datapoints.push([Date.now(), timestamp]);
-    }
+    this.datapoints.push([timestamp, value]);
     return this;
   }
 
-  addTtl(ttl) {
+  addTtl(ttl: number): this {
     if (typeof ttl !== "number" || ttl < 0) {
       throw new Error("ttl must be greater than or equal to zero");
     }
@@ -47,4 +51,3 @@ export class Metric {
     return this;
   }
 }
-

@@ -1,5 +1,25 @@
+export interface Aggregator {
+  name: string;
+  [key: string]: unknown;
+}
+
+export interface Grouper {
+  name: string;
+  [key: string]: unknown;
+}
+
+export type Order = "asc" | "desc";
+
 export class QueryMetric {
-  constructor(name) {
+  name: string;
+  tags: Record<string, string[]>;
+  group_by: Grouper[];
+  aggregators: Aggregator[];
+  limit?: number;
+  order?: Order;
+  exclude_tags: boolean;
+
+  constructor(name: string) {
     if (!name) {
       throw new Error("Metric name cannot be null or empty.");
     }
@@ -12,7 +32,7 @@ export class QueryMetric {
     this.exclude_tags = false;
   }
 
-  addTags(tags) {
+  addTags(tags: Record<string, string | string[]>): this {
     if (!tags || typeof tags !== "object") {
       throw new Error("tags must be an object");
     }
@@ -22,7 +42,7 @@ export class QueryMetric {
     return this;
   }
 
-  addTag(name, valueOrValues) {
+  addTag(name: string, valueOrValues: string | string[]): this {
     if (!name) {
       throw new Error("Tag name cannot be null or empty");
     }
@@ -39,7 +59,7 @@ export class QueryMetric {
     return this;
   }
 
-  addAggregator(aggregator) {
+  addAggregator(aggregator: Aggregator): this {
     if (!aggregator) {
       throw new Error("aggregator cannot be null");
     }
@@ -47,7 +67,7 @@ export class QueryMetric {
     return this;
   }
 
-  addGrouper(grouper) {
+  addGrouper(grouper: Grouper): this {
     if (!grouper) {
       throw new Error("grouper cannot be null");
     }
@@ -55,7 +75,7 @@ export class QueryMetric {
     return this;
   }
 
-  setLimit(limit) {
+  setLimit(limit: number): this {
     if (typeof limit !== "number" || limit <= 0) {
       throw new Error("limit must be greater than 0");
     }
@@ -63,7 +83,7 @@ export class QueryMetric {
     return this;
   }
 
-  setOrder(order) {
+  setOrder(order: Order): this {
     if (order !== "asc" && order !== "desc") {
       throw new Error("order must be 'asc' or 'desc'");
     }
@@ -71,9 +91,8 @@ export class QueryMetric {
     return this;
   }
 
-  setExcludeTags(exclude) {
+  setExcludeTags(exclude: boolean): this {
     this.exclude_tags = !!exclude;
     return this;
   }
 }
-

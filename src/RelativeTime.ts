@@ -1,5 +1,10 @@
+import { TimeUnit } from "./TimeUnit.js";
+
 export class RelativeTime {
-  constructor(value, unit) {
+  value: number;
+  unit: TimeUnit;
+
+  constructor(value: number, unit: TimeUnit) {
     if (typeof value !== "number" || value <= 0) {
       throw new Error("RelativeTime.value must be a positive number");
     }
@@ -10,4 +15,3 @@ export class RelativeTime {
     this.unit = unit;
   }
 }
-

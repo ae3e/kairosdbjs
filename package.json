@@ -2,14 +2,27 @@
   "name": "kairosdb-js-client",
   "version": "0.1.0",
   "description": "JavaScript client for KairosDB, inspired by the official Java client.",
-  "main": "src/index.js",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "type": "module",
+  "files": [
+    "dist/src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "npm run build",
+    "example:basic": "tsx examples/basic.ts",
+    "example:hourly": "tsx examples/hourlyAverage.ts"
+  },
   "keywords": [
     "kairosdb",
     "metrics",
     "time-series",
     "client"
   ],
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
 }
-

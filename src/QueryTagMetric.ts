@@ -1,5 +1,8 @@
 export class QueryTagMetric {
-  constructor(name) {
+  name: string;
+  tags: Record<string, string[]>;
+
+  constructor(name: string) {
     if (!name) {
       throw new Error("name cannot be null or empty");
     }
@@ -7,7 +10,7 @@ export class QueryTagMetric {
     this.tags = {};
   }
 
-  addTags(tags) {
+  addTags(tags: Record<string, string | string[]>): this {
     if (!tags || typeof tags !== "object") {
       throw new Error("tags must be an object");
     }
@@ -17,7 +20,7 @@ export class QueryTagMetric {
     return this;
   }
 
-  addTag(name, valueOrValues) {
+  addTag(name: string, valueOrValues: string | string[]): this {
     if (!name) {
       throw new Error("name cannot be null or empty");
     }
@@ -37,4 +40,3 @@ export class QueryTagMetric {
     return this;
   }
 }
-

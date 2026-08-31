@@ -7,5 +7,6 @@ export const TimeUnit = {
   WEEKS: "WEEKS",
   MONTHS: "MONTHS",
   YEARS: "YEARS"
-};
+} as const;
 
+export type TimeUnit = (typeof TimeUnit)[keyof typeof TimeUnit];
