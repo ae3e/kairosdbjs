@@ -20,7 +20,7 @@ export interface VersionResponse {
   [key: string]: unknown;
 }
 
-interface TagListResponse {
+interface ResultsResponse {
   results?: string[];
 }
 
@@ -125,11 +125,12 @@ export class KairosDBClient {
   }
 
   async getMetricNames(): Promise<string[]> {
-    return this._request<string[]>("GET", "/api/v1/metricnames");
+    const data = await this._request<ResultsResponse>("GET", "/api/v1/metricnames");
+    return data?.results ?? [];
   }
 
   async getTagNames(): Promise<string[]> {
-    const data = await this._request<TagListResponse>("GET", "/api/v1/tagnames");
+    const data = await this._request<ResultsResponse>("GET", "/api/v1/tagnames");
     return data?.results ?? [];
   }
 
@@ -137,7 +138,7 @@ export class KairosDBClient {
     const path = name
       ? `/api/v1/tagvalues?name=${encodeURIComponent(name)}`
       : "/api/v1/tagvalues";
-    const data = await this._request<TagListResponse>("GET", path);
+    const data = await this._request<ResultsResponse>("GET", path);
     return data?.results ?? [];
   }
 
