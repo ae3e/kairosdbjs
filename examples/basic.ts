@@ -42,6 +42,12 @@ async function run(): Promise<void> {
   const metricNames = await client.getMetricNames();
   console.log("Metric names:", JSON.stringify(metricNames, null, 2));
 
+  console.log("\n=== Tag names and values ===");
+  const tagNames = await client.getTagNames();
+  console.log("Tag names:", JSON.stringify(tagNames, null, 2));
+  const tagValues = await client.getTagValues("host");
+  console.log("Tag values for 'host':", JSON.stringify(tagValues, null, 2));
+
   console.log("\n=== Status and version ===");
   const status = await client.getStatus();
   const version = await client.getVersion();

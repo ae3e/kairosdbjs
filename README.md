@@ -105,6 +105,11 @@ console.log(tagResponse);
 // Metric names
 const metricNames = await client.getMetricNames();
 console.log(metricNames);
+
+// Tag names and values
+const tagNames = await client.getTagNames();
+const tagValues = await client.getTagValues("host");
+console.log(tagNames, tagValues);
 ```
 
 ## Main Differences from the Java Client

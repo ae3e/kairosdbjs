@@ -20,6 +20,10 @@ export interface VersionResponse {
   [key: string]: unknown;
 }
 
+interface TagListResponse {
+  results?: string[];
+}
+
 export class KairosDBClientError extends Error {
   status: number;
   body: string;
@@ -122,6 +126,19 @@ export class KairosDBClient {
 
   async getMetricNames(): Promise<string[]> {
     return this._request<string[]>("GET", "/api/v1/metricnames");
+  }
+
+  async getTagNames(): Promise<string[]> {
+    const data = await this._request<TagListResponse>("GET", "/api/v1/tagnames");
+    return data?.results ?? [];
+  }
+
+  async getTagValues(name?: string): Promise<string[]> {
+    const path = name
+      ? `/api/v1/tagvalues?name=${encodeURIComponent(name)}`
+      : "/api/v1/tagvalues";
+    const data = await this._request<TagListResponse>("GET", path);
+    return data?.results ?? [];
   }
 
   async deleteMetric(name: string): Promise<void> {
