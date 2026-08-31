@@ -5,18 +5,58 @@ Minimalist TypeScript client for KairosDB, inspired by the official Java client
 
 ## Installation
 
-```bash
-npm install kairosdb-js-client
+This package is published to **GitHub Packages**, not the public npm registry.
+Add the following to your project's `.npmrc` so npm resolves the `@ae3e` scope
+from GitHub Packages (a [personal access token](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-with-a-personal-access-token)
+with `read:packages` scope is required):
+
 ```
+@ae3e:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+```bash
+npm install @ae3e/kairosdb-js-client
+```
+
+## Node.js and browser support
+
+The client only relies on the standard `fetch` API and plain JavaScript — no
+Node-only built-ins. It works out of the box:
+
+- In **Node.js 18+**, which ships a global `fetch`.
+- In the **browser**, via any bundler (Vite, webpack, esbuild, Rollup...)
+  that consumes the published ESM build.
+
+The package ships both an ESM build (`dist/esm`, used by `import`/bundlers)
+and a CommonJS build (`dist/cjs`, used by `require`), so it works whether
+your project uses `"type": "module"` or not.
 
 ## Development
 
 ```bash
-npm install     # installs dependencies and builds dist/ via the prepare script
-npm run build    # compile TypeScript to dist/
-npm run example:basic    # run examples/basic.ts against a local KairosDB instance
-npm run example:hourly   # run examples/hourlyAverage.ts
+npm install              # installs dependencies and builds dist/ via the prepare script
+npm run build             # compile TypeScript to dist/esm and dist/cjs
+npm run typecheck         # type-check src/ and examples/ without emitting
+npm run example:basic     # run examples/basic.ts against a local KairosDB instance
+npm run example:hourly    # run examples/hourlyAverage.ts
 ```
+
+## Publishing a new version
+
+Publishing to GitHub Packages is automated by
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml):
+
+1. Bump the `version` field in `package.json`.
+2. Commit, then create and push a matching tag, e.g. for version `0.2.0`:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+3. The workflow type-checks, builds (ESM + CJS), verifies the tag matches
+   `package.json`'s version, and publishes to GitHub Packages using the
+   repository's built-in `GITHUB_TOKEN` — no extra secret needed.
 
 ## Quick Usage
 
@@ -27,7 +67,7 @@ import {
   QueryBuilder,
   QueryTagBuilder,
   TimeUnit
-} from "kairosdb-js-client";
+} from "@ae3e/kairosdb-js-client";
 
 const client = new KairosDBClient("http://localhost:8080");
 
