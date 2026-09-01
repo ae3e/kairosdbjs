@@ -5,18 +5,8 @@ Minimalist TypeScript client for KairosDB, inspired by the official Java client
 
 ## Installation
 
-This package is published to **GitHub Packages**, not the public npm registry.
-Add the following to your project's `.npmrc` so npm resolves the `@ae3e` scope
-from GitHub Packages (a [personal access token](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry#authenticating-with-a-personal-access-token)
-with `read:packages` scope is required):
-
-```
-@ae3e:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
 ```bash
-npm install @ae3e/kairosdb-js-client
+npm install kairosdbjs
 ```
 
 ## Node.js and browser support
@@ -44,7 +34,7 @@ npm run example:hourly    # run examples/hourlyAverage.ts
 
 ## Publishing a new version
 
-Publishing to GitHub Packages is automated by
+Publishing to npm is automated by
 [`.github/workflows/publish.yml`](.github/workflows/publish.yml):
 
 1. Bump the `version` field in `package.json`.
@@ -55,8 +45,12 @@ Publishing to GitHub Packages is automated by
    git push origin v0.2.0
    ```
 3. The workflow type-checks, builds (ESM + CJS), verifies the tag matches
-   `package.json`'s version, and publishes to GitHub Packages using the
-   repository's built-in `GITHUB_TOKEN` — no extra secret needed.
+   `package.json`'s version, and publishes to npm using the repository's
+   `NPM_TOKEN` secret. That token must be a
+   [granular access token](https://docs.npmjs.com/creating-and-viewing-access-tokens)
+   with read/write access to the package and "bypass two-factor
+   authentication for publishing" enabled, since automated CI publishes
+   can't respond to an OTP prompt.
 
 ## Quick Usage
 
@@ -67,7 +61,7 @@ import {
   QueryBuilder,
   QueryTagBuilder,
   TimeUnit
-} from "@ae3e/kairosdb-js-client";
+} from "kairosdbjs";
 
 const client = new KairosDBClient("http://localhost:8080");
 
