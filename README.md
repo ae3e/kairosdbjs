@@ -106,6 +106,81 @@ const tagValues = await client.getTagValues("host");
 console.log(tagNames, tagValues);
 ```
 
+## Client options
+
+```ts
+const client = new KairosDBClient("http://localhost:8080", {
+  apiPath: "/proxy/api/v1", // default: "/api/v1"
+  headers: { Authorization: "Bearer <token>" },
+  timeout: 10_000, // milliseconds, no timeout by default
+  fetch: myFetch // default: global fetch
+});
+```
+
+- **`apiPath`** — prefix used to build every endpoint (`datapoints`,
+  `datapoints/query`, `metricnames`, `health/status`, ...). Useful when
+  KairosDB is exposed behind a reverse proxy or gateway. Leading and trailing
+  slashes are normalized.
+- **`headers`** — sent with every request. This is the way to authenticate,
+  e.g. `Authorization: "Bearer <token>"` or `Authorization: "Basic <base64>"`.
+- **`fetch`** — custom `fetch` implementation (proxy agent, instrumentation,
+  tests, environments without a global `fetch`).
+- **`timeout`** — rejects with `KairosDBTimeoutError` when a request (including
+  reading the response body) takes longer than the given delay.
+
+Every request method also accepts a trailing `{ signal }` argument to cancel a
+single call with an `AbortSignal`. A cancelled call rejects with the signal's
+abort error (an `AbortError` by default), not with `KairosDBTimeoutError`.
+
+```ts
+const controller = new AbortController();
+const names = client.getMetricNames({ signal: controller.signal });
+controller.abort();
+```
+
+HTTP errors reject with `KairosDBClientError`, which exposes `status`,
+`statusText` and the raw response `body`.
+
+## Raw queries
+
+`queryRaw` sends a plain JSON payload as-is, without going through
+`QueryBuilder` and without any validation or rewriting. Use it for query
+features the builders do not cover.
+
+```ts
+import type { QueryResponse } from "kairosdbjs";
+
+const response: QueryResponse = await client.queryRaw({
+  start_relative: { value: 1, unit: "hours" },
+  cache_time: 30,
+  metrics: [
+    {
+      name: "my.metric",
+      tags: { host: ["server1"] },
+      group_by: [{ name: "tag", tags: ["host"] }],
+      aggregators: [
+        { name: "percentile", percentile: 0.9, sampling: { value: 5, unit: "minutes" } }
+      ]
+    }
+  ]
+});
+
+for (const query of response.queries) {
+  for (const result of query.results) {
+    console.log(result.name, result.values);
+  }
+}
+```
+
+`query()` and `queryTags()` are typed with `QueryResponse` and
+`QueryTagsResponse` as well.
+
+## Tests
+
+```bash
+npm test
+```
+
 ## Main Differences from the Java Client
 
 - Promise/`async`/`await`-oriented API.

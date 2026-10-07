@@ -33,7 +33,8 @@
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json",
     "example:basic": "tsx examples/basic.ts",
-    "example:hourly": "tsx examples/hourlyAverage.ts"
+    "example:hourly": "tsx examples/hourlyAverage.ts",
+    "test": "tsx --test test/*.test.ts"
   },
   "keywords": [
     "kairosdb",

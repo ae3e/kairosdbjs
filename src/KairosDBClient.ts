@@ -1,12 +1,25 @@
 import { MetricBuilder } from "./MetricBuilder.js";
 import { QueryBuilder } from "./QueryBuilder.js";
+import type { QueryPayload } from "./QueryBuilder.js";
 import { QueryTagBuilder } from "./QueryTagBuilder.js";
+import type { QueryResponse, QueryTagsResponse, RawQueryPayload } from "./types.js";
 
 export interface KairosDBClientOptions {
   headers?: Record<string, string>;
+  /** Prefix of every API endpoint, without trailing slash. Defaults to "/api/v1". */
+  apiPath?: string;
+  /** Custom fetch implementation. Defaults to the global `fetch`. */
+  fetch?: typeof fetch;
+  /** Request timeout in milliseconds. No timeout by default. */
+  timeout?: number;
 }
 
-interface RequestOptions {
+/** Per-call options accepted by every request method. */
+export interface RequestInitOptions {
+  signal?: AbortSignal;
+}
+
+interface RequestOptions extends RequestInitOptions {
   body?: unknown;
   accept?: string | null;
 }
@@ -27,35 +40,58 @@ interface ResultsResponse {
 export class KairosDBClientError extends Error {
   status: number;
   body: string;
+  statusText: string;
 
-  constructor(message: string, status: number, body: string) {
+  constructor(message: string, status: number, body: string, statusText = "") {
     super(message);
+    this.name = "KairosDBClientError";
     this.status = status;
     this.body = body;
+    this.statusText = statusText;
+  }
+}
+
+export class KairosDBTimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(timeoutMs: number) {
+    super(`KairosDB request timed out after ${timeoutMs} ms`);
+    this.name = "KairosDBTimeoutError";
+    this.timeoutMs = timeoutMs;
   }
 }
 
 export class KairosDBClient {
   baseUrl: string;
+  apiPath: string;
   fetchImpl: typeof fetch;
   defaultHeaders: Record<string, string>;
+  timeout?: number;
 
   constructor(baseUrl: string, options: KairosDBClientOptions = {}) {
     if (!baseUrl) {
       throw new Error("baseUrl is required");
     }
     this.baseUrl = baseUrl.replace(/\/+$/, "");
-    if (typeof fetch === "undefined") {
-      throw new Error("Global fetch is not available in this environment.");
+    const apiPath = (options.apiPath ?? "/api/v1").replace(/\/+$/, "");
+    this.apiPath = apiPath && !apiPath.startsWith("/") ? `/${apiPath}` : apiPath;
+    if (options.fetch) {
+      this.fetchImpl = options.fetch;
+    } else if (typeof fetch !== "undefined") {
+      this.fetchImpl = fetch.bind(globalThis);
+    } else {
+      throw new Error(
+        "Global fetch is not available in this environment; pass a fetch implementation with the `fetch` option."
+      );
     }
-    this.fetchImpl = fetch;
     this.defaultHeaders = options.headers || {};
+    this.timeout = options.timeout;
   }
 
   private async _request<T = unknown>(
     method: string,
     path: string,
-    { body, accept = "application/json" }: RequestOptions = {}
+    { body, accept = "application/json", signal }: RequestOptions = {}
   ): Promise<T> {
     const headers: Record<string, string> = {
       ...this.defaultHeaders
@@ -69,18 +105,69 @@ export class KairosDBClient {
       payload = typeof body === "string" ? body : JSON.stringify(body);
     }
 
-    const response = await this.fetchImpl(this.baseUrl + path, {
-      method,
-      headers,
-      body: payload
+    const controller = new AbortController();
+    let timedOut = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onAbort = () => controller.abort(signal?.reason);
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+      } else {
+        signal.addEventListener("abort", onAbort, { once: true });
+      }
+    }
+    if (this.timeout !== undefined && this.timeout > 0) {
+      timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, this.timeout);
+    }
+    // Rejects as soon as the controller aborts, even if the fetch
+    // implementation does not honor the signal.
+    const aborted = new Promise<never>((_, reject) => {
+      if (controller.signal.aborted) {
+        reject(controller.signal.reason);
+        return;
+      }
+      controller.signal.addEventListener(
+        "abort",
+        () => reject(controller.signal.reason),
+        { once: true }
+      );
     });
+    aborted.catch(() => undefined);
 
-    const text = await response.text();
+    let response: Response;
+    let text: string;
+    try {
+      const run = async () => {
+        const res = await this.fetchImpl(this.baseUrl + path, {
+          method,
+          headers,
+          body: payload,
+          signal: controller.signal
+        });
+        return { res, text: await res.text() };
+      };
+      ({ res: response, text } = await Promise.race([run(), aborted]));
+    } catch (error) {
+      if (timedOut) {
+        throw new KairosDBTimeoutError(this.timeout as number);
+      }
+      throw error;
+    } finally {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+      signal?.removeEventListener("abort", onAbort);
+    }
+
     if (!response.ok) {
       throw new KairosDBClientError(
         `KairosDB HTTP ${response.status}: ${text || "<empty body>"}`,
         response.status,
-        text
+        text,
+        response.statusText
       );
     }
 
@@ -98,79 +185,115 @@ export class KairosDBClient {
     return text as unknown as T;
   }
 
-  async pushMetrics(metricBuilder: MetricBuilder): Promise<void> {
+  private _url(path: string): string {
+    return this.apiPath + path;
+  }
+
+  async pushMetrics(
+    metricBuilder: MetricBuilder,
+    options: RequestInitOptions = {}
+  ): Promise<void> {
     const payload =
       metricBuilder && typeof metricBuilder.build === "function"
         ? metricBuilder.build()
         : metricBuilder;
-    await this._request("POST", "/api/v1/datapoints", { body: payload });
+    await this._request("POST", this._url("/datapoints"), { ...options, body: payload });
   }
 
-  async query(queryBuilder: QueryBuilder): Promise<unknown> {
+  async query(
+    queryBuilder: QueryBuilder,
+    options: RequestInitOptions = {}
+  ): Promise<QueryResponse> {
     const payload =
       queryBuilder && typeof queryBuilder.build === "function"
         ? queryBuilder.build()
         : queryBuilder;
-    return this._request("POST", "/api/v1/datapoints/query", { body: payload });
-  }
-
-  async queryTags(queryTagBuilder: QueryTagBuilder): Promise<unknown> {
-    const payload =
-      queryTagBuilder && typeof queryTagBuilder.build === "function"
-        ? queryTagBuilder.build()
-        : queryTagBuilder;
-    return this._request("POST", "/api/v1/datapoints/query/tags", {
+    return this._request<QueryResponse>("POST", this._url("/datapoints/query"), {
+      ...options,
       body: payload
     });
   }
 
-  async getMetricNames(): Promise<string[]> {
-    const data = await this._request<ResultsResponse>("GET", "/api/v1/metricnames");
+  /**
+   * Sends a plain JSON query payload as-is: no builder, no validation and no
+   * rewriting, so any KairosDB query feature can be used.
+   */
+  async queryRaw(
+    payload: RawQueryPayload | QueryPayload | string,
+    options: RequestInitOptions = {}
+  ): Promise<QueryResponse> {
+    return this._request<QueryResponse>("POST", this._url("/datapoints/query"), {
+      ...options,
+      body: payload
+    });
+  }
+
+  async queryTags(
+    queryTagBuilder: QueryTagBuilder,
+    options: RequestInitOptions = {}
+  ): Promise<QueryTagsResponse> {
+    const payload =
+      queryTagBuilder && typeof queryTagBuilder.build === "function"
+        ? queryTagBuilder.build()
+        : queryTagBuilder;
+    return this._request<QueryTagsResponse>("POST", this._url("/datapoints/query/tags"), {
+      ...options,
+      body: payload
+    });
+  }
+
+  async getMetricNames(options: RequestInitOptions = {}): Promise<string[]> {
+    const data = await this._request<ResultsResponse>("GET", this._url("/metricnames"), options);
     return data?.results ?? [];
   }
 
-  async getTagNames(): Promise<string[]> {
-    const data = await this._request<ResultsResponse>("GET", "/api/v1/tagnames");
+  async getTagNames(options: RequestInitOptions = {}): Promise<string[]> {
+    const data = await this._request<ResultsResponse>("GET", this._url("/tagnames"), options);
     return data?.results ?? [];
   }
 
-  async getTagValues(name?: string): Promise<string[]> {
+  async getTagValues(name?: string, options: RequestInitOptions = {}): Promise<string[]> {
     const path = name
-      ? `/api/v1/tagvalues?name=${encodeURIComponent(name)}`
-      : "/api/v1/tagvalues";
-    const data = await this._request<ResultsResponse>("GET", path);
+      ? this._url(`/tagvalues?name=${encodeURIComponent(name)}`)
+      : this._url("/tagvalues");
+    const data = await this._request<ResultsResponse>("GET", path, options);
     return data?.results ?? [];
   }
 
-  async deleteMetric(name: string): Promise<void> {
+  async deleteMetric(name: string, options: RequestInitOptions = {}): Promise<void> {
     if (!name) {
       throw new Error("Metric name is required");
     }
-    await this._request("DELETE", `/api/v1/metric/${encodeURIComponent(name)}`);
+    await this._request("DELETE", this._url(`/metric/${encodeURIComponent(name)}`), options);
   }
 
-  async delete(queryBuilder: QueryBuilder): Promise<void> {
+  async delete(queryBuilder: QueryBuilder, options: RequestInitOptions = {}): Promise<void> {
     const payload =
       queryBuilder && typeof queryBuilder.build === "function"
         ? queryBuilder.build()
         : queryBuilder;
-    await this._request("POST", "/api/v1/datapoints/delete", { body: payload });
+    await this._request("POST", this._url("/datapoints/delete"), { ...options, body: payload });
   }
 
-  async getStatus(): Promise<HealthStatus> {
-    return this._request<HealthStatus>("GET", "/api/v1/health/status");
+  async getStatus(options: RequestInitOptions = {}): Promise<HealthStatus> {
+    return this._request<HealthStatus>("GET", this._url("/health/status"), options);
   }
 
-  async getStatusCheck(): Promise<number> {
-    const result = await this._request<string>("GET", "/api/v1/health/check", {
+  async getStatusCheck(options: RequestInitOptions = {}): Promise<number> {
+    const result = await this._request<string>("GET", this._url("/health/check"), {
+      ...options,
       accept: "text/plain"
     });
     const code = Number(result);
     return Number.isNaN(code) ? 204 : code;
   }
 
-  async getVersion(): Promise<string | VersionResponse> {
-    const versionObj = await this._request<VersionResponse>("GET", "/api/v1/version");
+  async getVersion(options: RequestInitOptions = {}): Promise<string | VersionResponse> {
+    const versionObj = await this._request<VersionResponse>(
+      "GET",
+      this._url("/version"),
+      options
+    );
     if (versionObj && typeof versionObj.version === "string") {
       return versionObj.version;
     }

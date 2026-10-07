@@ -1,5 +1,17 @@
-export { KairosDBClient, KairosDBClientError } from "./KairosDBClient.js";
-export type { KairosDBClientOptions, HealthStatus, VersionResponse } from "./KairosDBClient.js";
+export { KairosDBClient, KairosDBClientError, KairosDBTimeoutError } from "./KairosDBClient.js";
+export type {
+  KairosDBClientOptions,
+  RequestInitOptions,
+  HealthStatus,
+  VersionResponse
+} from "./KairosDBClient.js";
+export type {
+  QueryResponse,
+  QueryResult,
+  QueryTagsResponse,
+  QueryTagsResult,
+  RawQueryPayload
+} from "./types.js";
 
 export { MetricBuilder } from "./MetricBuilder.js";
 export { Metric } from "./Metric.js";
